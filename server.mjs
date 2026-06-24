@@ -7,7 +7,12 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { networkInterfaces } from "node:os";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+let __dirname = process.cwd();
+try {
+  if (import.meta.url) __dirname = path.dirname(fileURLToPath(import.meta.url));
+} catch {
+  __dirname = process.cwd();
+}
 
 function loadLocalEnv() {
   const envPath = path.join(__dirname, ".env");
@@ -2699,7 +2704,14 @@ async function routeLocalRequest(req, res) {
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+let isMainModule = false;
+try {
+  isMainModule = Boolean(import.meta.url && process.argv[1] === fileURLToPath(import.meta.url));
+} catch {
+  isMainModule = false;
+}
+
+if (isMainModule) {
   createServer(routeLocalRequest).listen(PORT, HOST, () => {
     const localUrl = `http://127.0.0.1:${PORT}/opportunities`;
     const lanUrls = getLanUrls(PORT);
