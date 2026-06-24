@@ -1,0 +1,12 @@
+[build]
+  publish = "public"
+
+[[redirects]]
+  from = "/opportunities"
+  to = "/opportunities.html"
+  status = 200
+
+[[redirects]]
+  from = "/"
+  to = "/opportunities.html"
+  status = 200
