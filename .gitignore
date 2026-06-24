@@ -1,0 +1,6 @@
+.env
+.DS_Store
+data/
+mx-output/
+mx-install/*.zip
+opportunities-*.png

@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>机会池</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="phone-top">
+      <div>
+        <h1>机会池</h1>
+        <span>空仓模式</span>
+      </div>
+      <button id="refreshBtnMobile" class="ghost-btn">刷新</button>
+    </div>
+
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">沪</div>
+          <div>
+            <strong>A股盯盘</strong>
+            <span>候选池系统</span>
+          </div>
+        </div>
+        <nav class="side-tabs">
+          <a data-tab="watchlist">持仓盯盘</a>
+          <a data-tab="opportunities" class="active">机会池</a>
+          <a data-tab="buyAlerts">买入提醒</a>
+          <a data-tab="market">板块雷达</a>
+          <a data-tab="review">盘后复盘</a>
+        </nav>
+        <div class="side-note">
+          <span>安全边界</span>
+          <p>只做候选观察、风险提示和盯盘提醒，不自动交易。</p>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>机会池</h1>
+            <p>空仓模式下筛选值得观察的候选股票，等待触发条件确认。</p>
+          </div>
+          <div class="top-actions">
+            <div class="source" id="dataSource">数据加载中</div>
+            <button id="refreshBtn" class="primary">刷新机会池</button>
+          </div>
+        </header>
+
+        <div id="opportunityView">
+          <section id="indexStrip" class="index-strip"></section>
+
+          <section class="grid">
+          <article class="market-card" id="marketCard">
+            <div class="section-title">
+              <span>今日市场环境</span>
+              <div class="market-title-actions">
+                <button id="marketHistoryBtn" class="history-btn" type="button">查看历史</button>
+                <strong id="regimeLabel">--</strong>
+              </div>
+            </div>
+            <div class="regime-row">
+              <div>
+                <small>是否适合进攻</small>
+                <b id="attackable">--</b>
+              </div>
+              <div>
+                <small>风险仓位区间</small>
+                <b id="positionRange">--</b>
+              </div>
+              <div>
+                <small>指数均值</small>
+                <b id="avgIndex">--</b>
+              </div>
+            </div>
+            <div class="market-stats" id="marketStats"></div>
+            <p id="marketDescription" class="market-description">正在读取东方财富 API 数据...</p>
+          </article>
+
+          <article class="cash-card">
+            <div class="section-title">
+              <span>空仓模式</span>
+              <strong>cashMode</strong>
+            </div>
+            <p>系统先判断今天是否适合出手，再生成候选池；如果环境不好，不强行给出“买入”结论。</p>
+            <div class="cash-quote" id="cashQuote">今天没有高质量机会时，空仓也是策略。</div>
+          </article>
+          </section>
+
+          <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>强势板块排行</h2>
+              <p>sectorScore = 今日涨幅、3日强度、成交额放大、资金流入、涨停/大涨数量综合评分。</p>
+            </div>
+          </div>
+          <div id="sectorRank" class="sector-list"></div>
+          </section>
+
+          <section class="candidate-layout">
+          <div class="candidate-column">
+            <div class="column-head class-a">
+              <h2>A 类：重点盯盘</h2>
+              <span>score >= 80</span>
+            </div>
+            <div id="classA" class="stock-list"></div>
+          </div>
+          <div class="candidate-column">
+            <div class="column-head class-b">
+              <h2>B 类：观察等待</h2>
+              <span>65 - 79</span>
+            </div>
+            <div id="classB" class="stock-list"></div>
+          </div>
+          <div class="candidate-column">
+            <div class="column-head class-c">
+              <h2>C 类：风险偏高</h2>
+              <span>暂不参与</span>
+            </div>
+            <div id="classC" class="stock-list"></div>
+          </div>
+          </section>
+        </div>
+
+        <section id="tabView" class="tab-view" hidden></section>
+      </main>
+    </div>
+
+    <nav class="bottom-tabs">
+      <a data-tab="watchlist">持仓</a>
+      <a data-tab="opportunities" class="active">机会池</a>
+      <a data-tab="buyAlerts">买入</a>
+      <a data-tab="market">板块</a>
+      <a data-tab="review">复盘</a>
+    </nav>
+
+    <dialog id="detailDialog" class="detail-dialog">
+      <div class="detail-shell">
+        <button id="closeDialog" class="icon-btn" aria-label="关闭">×</button>
+        <div id="detailContent"></div>
+      </div>
+    </dialog>
+
+    <dialog id="historyDialog" class="detail-dialog history-dialog">
+      <div class="detail-shell">
+        <button id="closeHistoryDialog" class="icon-btn" aria-label="关闭">×</button>
+        <div id="historyContent"></div>
+      </div>
+    </dialog>
+
+    <div id="toast" class="toast" hidden></div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
