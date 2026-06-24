@@ -4,3 +4,4 @@ data/
 mx-output/
 mx-install/*.zip
 opportunities-*.png
+.deploy_key*
