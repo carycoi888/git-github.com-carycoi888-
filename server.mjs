@@ -41,7 +41,7 @@ const INDEX_SECIDS = [
 ];
 const A_STOCK_FS = "m:0%2Bt:6,m:0%2Bt:80,m:1%2Bt:2,m:1%2Bt:23";
 const SECTOR_FS = ["m:90%2Bt:2", "m:90%2Bt:3"];
-const DATA_DIR = path.join(__dirname, "data");
+const DATA_DIR = process.env.NETLIFY ? path.join("/tmp", "a-share-data") : path.join(__dirname, "data");
 const WATCHLIST_FILE = path.join(DATA_DIR, "watchlist.json");
 const INDEX_CACHE_FILE = path.join(DATA_DIR, "index-cache.json");
 const SECTOR_CACHE_FILE = path.join(DATA_DIR, "sector-cache.json");
@@ -2642,52 +2642,68 @@ function getLanUrls(port) {
     .map((item) => `http://${item.address}:${port}/opportunities`);
 }
 
-createServer(async (req, res) => {
+function normalizeApiPath(pathname) {
+  return String(pathname || "")
+    .replace(/^\/\.netlify\/functions\/api\/?/u, "/api/")
+    .replace(/\/$/u, "");
+}
+
+export async function handleApiRequest({ method = "GET", path: requestPath = "", body = {} } = {}) {
+  const pathname = normalizeApiPath(requestPath);
+  if (method === "GET" && pathname === "/api/opportunities") {
+    return finalizeOpportunityPayload(await buildOpportunityPool());
+  }
+  if (method === "GET" && pathname === "/api/market-history") {
+    return buildMarketHistory();
+  }
+  if (method === "POST" && pathname === "/api/opportunities/cache") {
+    return saveOpportunityCacheFromClient(body);
+  }
+  if (method === "GET" && pathname === "/api/watchlist") {
+    return { watchlist: await getWatchlist({ withQuotes: true }) };
+  }
+  if (method === "GET" && pathname === "/api/watchlist/analysis") {
+    return analyzeWatchlist();
+  }
+  if (method === "GET" && pathname === "/api/buy-alerts") {
+    return buildBuyAlerts();
+  }
+  if (method === "GET" && pathname === "/api/buy-alerts/cache") {
+    return readBuyAlertCachePayload();
+  }
+  if (method === "POST" && pathname === "/api/watchlist") {
+    return addWatchlist(body);
+  }
+  if (method === "DELETE" && pathname.startsWith("/api/watchlist/")) {
+    return deleteWatchlist(decodeURIComponent(pathname.split("/").at(-1)));
+  }
+  const error = new Error("API route not found");
+  error.statusCode = 404;
+  throw error;
+}
+
+async function routeLocalRequest(req, res) {
   try {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    if (req.method === "GET" && url.pathname === "/api/opportunities") {
-      json(res, 200, await finalizeOpportunityPayload(await buildOpportunityPool()));
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/api/market-history") {
-      json(res, 200, await buildMarketHistory());
-      return;
-    }
-    if (req.method === "POST" && url.pathname === "/api/opportunities/cache") {
-      json(res, 200, await saveOpportunityCacheFromClient(await readBody(req)));
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/api/watchlist") {
-      json(res, 200, { watchlist: await getWatchlist({ withQuotes: true }) });
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/api/watchlist/analysis") {
-      json(res, 200, await analyzeWatchlist());
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/api/buy-alerts") {
-      json(res, 200, await buildBuyAlerts());
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/api/buy-alerts/cache") {
-      json(res, 200, await readBuyAlertCachePayload());
-      return;
-    }
-    if (req.method === "POST" && url.pathname === "/api/watchlist") {
-      json(res, 200, await addWatchlist(await readBody(req)));
-      return;
-    }
-    if (req.method === "DELETE" && url.pathname.startsWith("/api/watchlist/")) {
-      json(res, 200, await deleteWatchlist(decodeURIComponent(url.pathname.split("/").at(-1))));
+    if (url.pathname.startsWith("/api/")) {
+      json(res, 200, await handleApiRequest({
+        method: req.method,
+        path: url.pathname,
+        body: ["POST", "PUT", "PATCH"].includes(req.method) ? await readBody(req) : {}
+      }));
       return;
     }
     await serveStatic(req, res);
   } catch (error) {
-    json(res, 500, { error: error.message });
+    json(res, error.statusCode || 500, { error: error.message });
   }
-}).listen(PORT, HOST, () => {
-  const localUrl = `http://127.0.0.1:${PORT}/opportunities`;
-  const lanUrls = getLanUrls(PORT);
-  console.log(`机会池页面已启动：${localUrl}`);
-  if (lanUrls.length) console.log(`手机同 Wi-Fi 访问：${lanUrls.join("  ")}`);
-});
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  createServer(routeLocalRequest).listen(PORT, HOST, () => {
+    const localUrl = `http://127.0.0.1:${PORT}/opportunities`;
+    const lanUrls = getLanUrls(PORT);
+    console.log(`机会池页面已启动：${localUrl}`);
+    if (lanUrls.length) console.log(`手机同 Wi-Fi 访问：${lanUrls.join("  ")}`);
+  });
+}
