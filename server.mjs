@@ -684,6 +684,13 @@ async function getBroadMarketBreadth() {
   return breadth;
 }
 
+function withTimeout(promise, ms, fallback) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => setTimeout(() => resolve(fallback), ms))
+  ]);
+}
+
 async function getRealtimeSectors() {
   const fields = "f12,f14,f2,f3,f6,f62,f128,f140";
   const results = await Promise.allSettled(SECTOR_FS.map((fs) => eastmoneyJson(eastmoneyClistUrl({
@@ -2248,7 +2255,7 @@ function appendBreadthDescription(description, breadth) {
 async function finalizeOpportunityPayload(payload) {
   if (!payload?.market) return payload;
   let next = payload;
-  if (!next.market.breadth) {
+  if (!next.market.breadth && !IS_NETLIFY) {
     const breadth = await getBroadMarketBreadth().catch(() => null);
     if (breadth) {
       next = {
@@ -2456,7 +2463,39 @@ async function enrichPayloadCandidates(payload) {
   };
 }
 
+async function buildNetlifyOpportunityPool() {
+  const [indices, sectorRows, stocks] = await Promise.all([
+    withTimeout(getRealtimeIndices().catch(() => []), 6000, []),
+    withTimeout(getRealtimeSectors().catch(() => []), 6000, []),
+    withTimeout(getSinaAStocks({ pages: 20, pageSize: 100 }).catch(() => []), 10000, [])
+  ]);
+  const sectors = scoreSectors(sectorRows, { allowFallback: true });
+  const market = buildRealtimeMarket(indices, stocks, sectors);
+  const candidates = scoreRealtimeCandidates(stocks, sectors);
+  if (candidates.length) {
+    return packagePayload(
+      market,
+      sectors,
+      candidates,
+      true,
+      "Netlify 线上极速模式：使用新浪/腾讯公开行情生成候选，避免云函数超时；深度资金/技术分析请用本地版刷新。"
+    );
+  }
+  const fallback = buildSamplePayload("Netlify 线上极速模式未能在时限内拿到足够股票池，暂用本地演示候选；请稍后刷新或使用本地版。");
+  return {
+    ...fallback,
+    market: {
+      ...fallback.market,
+      ...market,
+      breadth: market.breadth || fallback.market.breadth,
+      totalAmount: market.totalAmount || fallback.market.totalAmount
+    },
+    sectors: sectors.length ? sectors : fallback.sectors
+  };
+}
+
 async function buildOpportunityPool() {
+  if (IS_NETLIFY) return buildNetlifyOpportunityPool();
   const inTradingSession = isAshareTradingSession();
   const preferCacheOutsideSession = shouldPreferCacheOutsideSession();
   let realtimeIssueMessage = "";
