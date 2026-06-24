@@ -484,6 +484,28 @@ async function getSinaAStocks({ pages = 8, pageSize = 80 } = {}) {
   });
 }
 
+async function getSinaAStocksFast({ pages = 10, pageSize = 100, timeoutMs = 2500 } = {}) {
+  const urls = Array.from({ length: pages }, (_, index) => `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData?page=${index + 1}&num=${pageSize}&sort=changepercent&asc=0&node=hs_a&symbol=&_s_r_a=page`);
+  const results = await mapLimit(urls, 5, async (url) => {
+    try {
+      return await publicFetchJson(url, timeoutMs, { referer: "https://finance.sina.com.cn/" });
+    } catch {
+      return null;
+    }
+  });
+  const seen = new Set();
+  return results
+    .filter(Array.isArray)
+    .flatMap((result) => result)
+    .map(normalizeSinaStock)
+    .filter(Boolean)
+    .filter((row) => {
+      if (seen.has(row.f12)) return false;
+      seen.add(row.f12);
+      return true;
+    });
+}
+
 function parseTencentQuoteLine(line) {
   const match = String(line).match(/^v_([a-z]{2}\d{6})="(.*)";?$/);
   if (!match) return null;
@@ -2464,13 +2486,24 @@ async function enrichPayloadCandidates(payload) {
 }
 
 async function buildNetlifyOpportunityPool() {
-  const [indices, sectorRows, stocks] = await Promise.all([
-    withTimeout(getRealtimeIndices().catch(() => []), 6000, []),
-    withTimeout(getRealtimeSectors().catch(() => []), 6000, []),
-    withTimeout(getSinaAStocks({ pages: 20, pageSize: 100 }).catch(() => []), 10000, [])
-  ]);
-  const sectors = scoreSectors(sectorRows, { allowFallback: true });
-  const market = buildRealtimeMarket(indices, stocks, sectors);
+  const stocks = await getSinaAStocksFast({ pages: 10, pageSize: 100, timeoutMs: 2500 }).catch(() => []);
+  const sectors = scoreSectors([], { allowFallback: true });
+  let market = buildRealtimeMarket([], stocks, sectors);
+  const breadth = calculateBreadthFromStocks(stocks, 300);
+  if (breadth) {
+    market = {
+      ...market,
+      breadth: {
+        upCount: breadth.upCount,
+        downCount: breadth.downCount,
+        flatCount: breadth.flatCount,
+        limitUpCount: breadth.limitUpCount,
+        limitDownCount: breadth.limitDownCount
+      },
+      totalAmount: moneyText(breadth.totalAmount),
+      description: appendBreadthDescription(market.description, breadth)
+    };
+  }
   const candidates = scoreRealtimeCandidates(stocks, sectors);
   if (candidates.length) {
     return packagePayload(
