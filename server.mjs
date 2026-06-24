@@ -35,6 +35,7 @@ const PORT = Number(process.env.PORT || 4173);
 const HOST = process.env.HOST || "0.0.0.0";
 const MX_APIKEY = process.env.MX_APIKEY;
 const MX_BASE = process.env.MX_API_URL || "https://mkapi2.dfcfs.com/finskillshub";
+const IS_NETLIFY = Boolean(process.env.NETLIFY);
 const EM_UT = "bd1d9ddb04089700cf9c27f6f7426281";
 const INDEX_SECIDS = [
   { secid: "1.000001", code: "000001", name: "上证指数" },
@@ -2534,7 +2535,14 @@ async function buildOpportunityPool() {
             ? `东方财富全 A 接口空返，已切换新浪公开行情补全${parts || "部分实时数据"}；指数/个股报价可用腾讯公开行情兜底。`
             : `已通过东方财富 push2 实时行情接口获取${parts || "部分实时数据"}`
       );
-      payload = await enrichPayloadCandidates(payload);
+      if (IS_NETLIFY) {
+        payload = {
+          ...payload,
+          sourceMessage: `${String(payload.sourceMessage || "").replace(/[；;。]+$/u, "")}；Netlify 线上使用极速模式，优先保证页面实时返回，深度资金/技术分析请用本地版刷新。`
+        };
+      } else {
+        payload = await enrichPayloadCandidates(payload);
+      }
       if (indices.length && stocks.length && candidates.length) await writeOpportunityCache(payload);
       return payload;
     }
