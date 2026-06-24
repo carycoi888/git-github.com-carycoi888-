@@ -3,6 +3,11 @@
   functions = "netlify/functions"
 
 [[redirects]]
+  from = "/api/opportunities"
+  to = "/.netlify/functions/opportunities"
+  status = 200
+
+[[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200
