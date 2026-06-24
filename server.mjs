@@ -2514,7 +2514,7 @@ async function buildOpportunityPool() {
         if (cachedPayload) return cachedPayload;
       }
     }
-    if (indices.length || stocks.length || (sectors.length && !MX_APIKEY)) {
+    if (indices.length || stocks.length || sectors.length) {
       const market = buildRealtimeMarket(indices, stocks, sectors);
       const candidates = scoreRealtimeCandidates(stocks, sectors);
       const parts = [
